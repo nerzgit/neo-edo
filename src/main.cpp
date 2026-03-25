@@ -1,81 +1,69 @@
 #include "engine/renderer/material.h"
-#include "engine/renderer/mesh.h"
 #include "engine/renderer/renderer.h"
-#include "engine/renderer/shader.h"
-#include "engine/scene/entity.h"
+#include "engine/resource/mesh_factory.h"
+#include "engine/resource/mesh_manager.h"
+#include "engine/resource/shader_manager.h"
+#include "engine/scene/scene.h"
 #include "engine/window/window.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <vector>
+#include <string>
 
-static const char *kVertSrc = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
-}
-)";
-
-static const char *kFragSrc = R"(
-#version 330 core
-uniform vec4 color;
-out vec4 FragColor;
-void main() {
-    FragColor = color;
-}
-)";
+static const std::string kShaderDir = std::string(ASSETS_DIR) + "/shaders/";
 
 int main() {
   try {
     Window window(800, 600, "neo-edo");
     Renderer renderer;
 
-    // Mesh（同じMeshを複数Entityで使い回せる）
-    std::vector<float> vertices = {
-        -0.5f, -0.5f, 0.0f, 0.5f,  -0.5f, 0.0f,
-        0.5f,  0.5f,  0.0f, -0.5f, 0.5f,  0.0f,
-    };
-    std::vector<unsigned int> indices = {0, 1, 2, 2, 3, 0};
-    Mesh quadMesh(vertices, indices);
+    // --- Shader ---
+    ShaderManager shaderManager;
+    shaderManager.loadFromFile("basic", kShaderDir + "basic.vert",
+                               kShaderDir + "basic.frag");
 
-    // Shader / Material
-    Shader defaultShader(kVertSrc, kFragSrc);
+    // --- Mesh（MeshFactory で生成して MeshManager に登録）---
+    MeshManager meshManager;
+    meshManager.loadMesh("cube",   MeshFactory::cube());
+    meshManager.loadMesh("sphere", MeshFactory::sphere());
+    meshManager.loadMesh("plane",  MeshFactory::plane(2.0f, 2.0f));
 
+    // --- Material ---
     Material orangeMat;
-    orangeMat.shader = &defaultShader;
+    orangeMat.shader = &shaderManager.get("basic");
     orangeMat.color = glm::vec4(0.8f, 0.5f, 0.2f, 1.0f);
 
     Material blueMat;
-    blueMat.shader = &defaultShader;
+    blueMat.shader = &shaderManager.get("basic");
     blueMat.color = glm::vec4(0.2f, 0.5f, 0.9f, 1.0f);
 
-    // Entity（同じMeshを使い回しつつ位置・色が異なる）
-    Entity player;
-    player.mesh = &quadMesh;
+    // --- Scene ---
+    Scene scene;
+
+    Entity &player = scene.createEntity();
+    player.mesh = &meshManager.get("cube");
     player.material = &orangeMat;
     player.transform.position = glm::vec3(-1.0f, 0.0f, 0.0f);
 
-    Entity enemy;
-    enemy.mesh = &quadMesh;
+    Entity &enemy = scene.createEntity();
+    enemy.mesh = &meshManager.get("sphere");
     enemy.material = &blueMat;
     enemy.transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
-    std::vector<Entity *> entities = {&player, &enemy};
+    float lastTime = static_cast<float>(glfwGetTime());
 
     while (!window.shouldClose()) {
-      float time = static_cast<float>(glfwGetTime());
+      float now = static_cast<float>(glfwGetTime());
+      float dt = now - lastTime;
+      lastTime = now;
 
-      // アニメーション
-      player.transform.rotation.y = time;
-      enemy.transform.rotation.y = -time;
+      // アニメーション（Sceneのupdateに移動予定）
+      player.transform.rotation.y += dt;
+      enemy.transform.rotation.y -= dt;
+
+      scene.update(dt);
 
       renderer.beginFrame();
-      for (auto *e : entities) {
-        renderer.draw(*e->mesh, e->transform, *e->material);
-      }
+      scene.render(renderer);
 
       window.swapBuffers();
       window.pollEvents();

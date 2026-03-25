@@ -15,6 +15,11 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 add_executable(${APP_NAME} ${SOURCES})
 
+target_compile_definitions(${APP_NAME}
+    PRIVATE
+        ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
 target_include_directories(${APP_NAME}
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src
