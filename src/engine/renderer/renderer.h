@@ -1,21 +1,14 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <memory>
-
-class Shader;
+class Mesh;
+struct Transform;
+struct Material;
 
 class Renderer {
 public:
-    Renderer();
-    ~Renderer();
+  Renderer();
 
-    void beginFrame();
-    void draw();
-
-private:
-    std::unique_ptr<Shader> shader_;
-    GLuint vao_;
-    GLuint vbo_;
-    GLuint ebo_;
+  void beginFrame();
+  void draw(const Mesh &mesh, const Transform &transform,
+            const Material &material);
 };

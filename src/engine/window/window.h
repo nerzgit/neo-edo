@@ -6,15 +6,15 @@
 
 class Window {
 public:
-    Window(int width, int height, const std::string& title);
-    ~Window();
+  Window(int width, int height, const std::string &title);
+  ~Window();
 
-    bool shouldClose() const;
-    void swapBuffers();
-    void pollEvents();
+  bool shouldClose() const;
+  void swapBuffers();
+  void pollEvents();
 
-    GLFWwindow* handle() const { return window_; }
+  GLFWwindow *handle() const { return window_; }
 
 private:
-    GLFWwindow* window_ = nullptr;
+  GLFWwindow *window_ = nullptr;
 };
