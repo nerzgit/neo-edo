@@ -4,38 +4,63 @@
 
 static constexpr float kPi = 3.14159265358979323846f;
 
+// Vertex format: x, y, z, nx, ny, nz (6 floats per vertex)
+
 // -----------------------------------------------------------------------
-// Cube
+// Cube  (各面に正確なフラット法線を持つ24頂点)
 // -----------------------------------------------------------------------
 std::unique_ptr<Mesh> MeshFactory::cube(float size) {
   float h = size * 0.5f;
 
-  //       7----6
-  //      /|   /|
-  //     3----2 |
-  //     | 4--|-5
-  //     |/   |/
-  //     0----1
+  std::vector<float> v;
+  v.reserve(24 * 6);
 
-  std::vector<float> v = {
-      -h, -h, -h, // 0
-       h, -h, -h, // 1
-       h,  h, -h, // 2
-      -h,  h, -h, // 3
-      -h, -h,  h, // 4
-       h, -h,  h, // 5
-       h,  h,  h, // 6
-      -h,  h,  h, // 7
+  auto push = [&](float x, float y, float z, float nx, float ny, float nz) {
+    v.insert(v.end(), {x, y, z, nx, ny, nz});
   };
 
-  std::vector<unsigned int> idx = {
-      4, 5, 6, 4, 6, 7, // front  (+z)
-      1, 0, 3, 1, 3, 2, // back   (-z)
-      0, 4, 7, 0, 7, 3, // left   (-x)
-      5, 1, 2, 5, 2, 6, // right  (+x)
-      0, 1, 5, 0, 5, 4, // bottom (-y)
-      3, 7, 6, 3, 6, 2, // top    (+y)
-  };
+  // Front (+z) — normal (0,0,1)
+  push(-h, -h,  h,  0,0,1);
+  push( h, -h,  h,  0,0,1);
+  push( h,  h,  h,  0,0,1);
+  push(-h,  h,  h,  0,0,1);
+
+  // Back (-z) — normal (0,0,-1)
+  push( h, -h, -h,  0,0,-1);
+  push(-h, -h, -h,  0,0,-1);
+  push(-h,  h, -h,  0,0,-1);
+  push( h,  h, -h,  0,0,-1);
+
+  // Left (-x) — normal (-1,0,0)
+  push(-h, -h, -h, -1,0,0);
+  push(-h, -h,  h, -1,0,0);
+  push(-h,  h,  h, -1,0,0);
+  push(-h,  h, -h, -1,0,0);
+
+  // Right (+x) — normal (1,0,0)
+  push( h, -h,  h,  1,0,0);
+  push( h, -h, -h,  1,0,0);
+  push( h,  h, -h,  1,0,0);
+  push( h,  h,  h,  1,0,0);
+
+  // Bottom (-y) — normal (0,-1,0)
+  push(-h, -h, -h,  0,-1,0);
+  push( h, -h, -h,  0,-1,0);
+  push( h, -h,  h,  0,-1,0);
+  push(-h, -h,  h,  0,-1,0);
+
+  // Top (+y) — normal (0,1,0)
+  push(-h,  h,  h,  0,1,0);
+  push( h,  h,  h,  0,1,0);
+  push( h,  h, -h,  0,1,0);
+  push(-h,  h, -h,  0,1,0);
+
+  std::vector<unsigned int> idx;
+  idx.reserve(36);
+  for (unsigned int face = 0; face < 6; face++) {
+    unsigned int b = face * 4;
+    idx.insert(idx.end(), {b, b+1, b+2,  b, b+2, b+3});
+  }
 
   return std::make_unique<Mesh>(v, idx);
 }
@@ -52,9 +77,7 @@ std::unique_ptr<Mesh> MeshFactory::plane(float width, float depth, int subdivW,
     for (int i = 0; i <= subdivW; i++) {
       float x = (i / float(subdivW) - 0.5f) * width;
       float z = (j / float(subdivD) - 0.5f) * depth;
-      v.push_back(x);
-      v.push_back(0.0f);
-      v.push_back(z);
+      v.insert(v.end(), {x, 0.0f, z,  0.0f, 1.0f, 0.0f});
     }
   }
 
@@ -64,7 +87,6 @@ std::unique_ptr<Mesh> MeshFactory::plane(float width, float depth, int subdivW,
       unsigned int tr = tl + 1;
       unsigned int bl = tl + (subdivW + 1);
       unsigned int br = bl + 1;
-      // CCW from +Y
       idx.push_back(tl); idx.push_back(bl); idx.push_back(br);
       idx.push_back(tl); idx.push_back(br); idx.push_back(tr);
     }
@@ -74,19 +96,20 @@ std::unique_ptr<Mesh> MeshFactory::plane(float width, float depth, int subdivW,
 }
 
 // -----------------------------------------------------------------------
-// Sphere  (UV球, Y軸が極)
+// Sphere  (UV球, 法線 = normalize(position))
 // -----------------------------------------------------------------------
 std::unique_ptr<Mesh> MeshFactory::sphere(float radius, int stacks, int slices) {
   std::vector<float> v;
   std::vector<unsigned int> idx;
 
   for (int i = 0; i <= stacks; i++) {
-    float phi = kPi * i / float(stacks); // 0 (top) → π (bottom)
+    float phi = kPi * i / float(stacks);
     for (int j = 0; j <= slices; j++) {
       float theta = 2.0f * kPi * j / float(slices);
-      v.push_back(radius * std::sin(phi) * std::cos(theta)); // x
-      v.push_back(radius * std::cos(phi));                   // y
-      v.push_back(radius * std::sin(phi) * std::sin(theta)); // z
+      float nx = std::sin(phi) * std::cos(theta);
+      float ny = std::cos(phi);
+      float nz = std::sin(phi) * std::sin(theta);
+      v.insert(v.end(), {radius * nx, radius * ny, radius * nz,  nx, ny, nz});
     }
   }
 
@@ -105,7 +128,7 @@ std::unique_ptr<Mesh> MeshFactory::sphere(float radius, int stacks, int slices) 
 }
 
 // -----------------------------------------------------------------------
-// Cylinder  (側面 + 上下キャップ)
+// Cylinder  (側面 + 上下キャップ、各部分に正確な法線)
 // -----------------------------------------------------------------------
 std::unique_ptr<Mesh> MeshFactory::cylinder(float radius, float height,
                                              int slices) {
@@ -113,42 +136,59 @@ std::unique_ptr<Mesh> MeshFactory::cylinder(float radius, float height,
   std::vector<unsigned int> idx;
   float halfH = height * 0.5f;
 
-  // 底リング [0, slices-1]、上リング [slices, 2*slices-1]
+  // -- 側面 --
+  // 底リング (側面用)
+  unsigned int sideBottomBase = 0;
   for (int i = 0; i < slices; i++) {
     float theta = 2.0f * kPi * i / float(slices);
-    float x = radius * std::cos(theta);
-    float z = radius * std::sin(theta);
-    v.push_back(x); v.push_back(-halfH); v.push_back(z); // 底
-    v.push_back(x); v.push_back( halfH); v.push_back(z); // 上
+    float cx = std::cos(theta), cz = std::sin(theta);
+    v.insert(v.end(), {radius * cx, -halfH, radius * cz,  cx, 0.0f, cz});
   }
-
-  // 側面
+  // 上リング (側面用)
+  unsigned int sideTopBase = slices;
+  for (int i = 0; i < slices; i++) {
+    float theta = 2.0f * kPi * i / float(slices);
+    float cx = std::cos(theta), cz = std::sin(theta);
+    v.insert(v.end(), {radius * cx,  halfH, radius * cz,  cx, 0.0f, cz});
+  }
   for (int i = 0; i < slices; i++) {
     int next = (i + 1) % slices;
-    unsigned int b0 = i * 2,       t0 = i * 2 + 1;
-    unsigned int b1 = next * 2,    t1 = next * 2 + 1;
+    unsigned int b0 = sideBottomBase + i,    b1 = sideBottomBase + next;
+    unsigned int t0 = sideTopBase   + i,    t1 = sideTopBase   + next;
     idx.push_back(b0); idx.push_back(b1); idx.push_back(t0);
     idx.push_back(t0); idx.push_back(b1); idx.push_back(t1);
   }
 
-  // 底キャップ中心 [2*slices]
-  unsigned int bottomCenter = static_cast<unsigned int>(v.size() / 3);
-  v.push_back(0.0f); v.push_back(-halfH); v.push_back(0.0f);
+  // -- 底キャップ (法線 -Y) --
+  unsigned int bottomRingBase = 2 * slices;
+  for (int i = 0; i < slices; i++) {
+    float theta = 2.0f * kPi * i / float(slices);
+    v.insert(v.end(), {radius * std::cos(theta), -halfH, radius * std::sin(theta),
+                       0.0f, -1.0f, 0.0f});
+  }
+  unsigned int bottomCenter = static_cast<unsigned int>(v.size() / 6);
+  v.insert(v.end(), {0.0f, -halfH, 0.0f,  0.0f, -1.0f, 0.0f});
   for (int i = 0; i < slices; i++) {
     int next = (i + 1) % slices;
     idx.push_back(bottomCenter);
-    idx.push_back(static_cast<unsigned int>(next * 2));
-    idx.push_back(static_cast<unsigned int>(i * 2));
+    idx.push_back(bottomRingBase + next);
+    idx.push_back(bottomRingBase + i);
   }
 
-  // 上キャップ中心 [2*slices+1]
-  unsigned int topCenter = static_cast<unsigned int>(v.size() / 3);
-  v.push_back(0.0f); v.push_back(halfH); v.push_back(0.0f);
+  // -- 上キャップ (法線 +Y) --
+  unsigned int topRingBase = static_cast<unsigned int>(v.size() / 6);
+  for (int i = 0; i < slices; i++) {
+    float theta = 2.0f * kPi * i / float(slices);
+    v.insert(v.end(), {radius * std::cos(theta),  halfH, radius * std::sin(theta),
+                       0.0f, 1.0f, 0.0f});
+  }
+  unsigned int topCenter = static_cast<unsigned int>(v.size() / 6);
+  v.insert(v.end(), {0.0f,  halfH, 0.0f,  0.0f, 1.0f, 0.0f});
   for (int i = 0; i < slices; i++) {
     int next = (i + 1) % slices;
     idx.push_back(topCenter);
-    idx.push_back(static_cast<unsigned int>(i * 2 + 1));
-    idx.push_back(static_cast<unsigned int>(next * 2 + 1));
+    idx.push_back(topRingBase + i);
+    idx.push_back(topRingBase + next);
   }
 
   return std::make_unique<Mesh>(v, idx);
@@ -162,36 +202,50 @@ std::unique_ptr<Mesh> MeshFactory::cone(float radius, float height, int slices) 
   std::vector<unsigned int> idx;
   float halfH = height * 0.5f;
 
-  // 底リング [0, slices-1]
+  // 側面法線: normalize(height * (cos θ, 0, sin θ) + (0, radius, 0))
+  float L = std::sqrt(height * height + radius * radius);
+  float ny_side = radius / L;
+  float nxz_side = height / L;
+
+  // -- 底リング (側面用) --
   for (int i = 0; i < slices; i++) {
     float theta = 2.0f * kPi * i / float(slices);
-    v.push_back(radius * std::cos(theta));
-    v.push_back(-halfH);
-    v.push_back(radius * std::sin(theta));
+    float cx = std::cos(theta), cz = std::sin(theta);
+    v.insert(v.end(), {radius * cx, -halfH, radius * cz,
+                       nxz_side * cx, ny_side, nxz_side * cz});
   }
 
-  // 頂点 [slices]
-  unsigned int apex = static_cast<unsigned int>(v.size() / 3);
-  v.push_back(0.0f); v.push_back(halfH); v.push_back(0.0f);
-
-  // 底キャップ中心 [slices+1]
-  unsigned int bottomCenter = static_cast<unsigned int>(v.size() / 3);
-  v.push_back(0.0f); v.push_back(-halfH); v.push_back(0.0f);
+  // -- 頂点 (slices個; 各スライスに個別の法線) --
+  unsigned int apexBase = slices;
+  for (int i = 0; i < slices; i++) {
+    // 隣接する2スライスの中間方向に頂点法線を置く (スムーズ近似)
+    float theta = 2.0f * kPi * (i + 0.5f) / float(slices);
+    v.insert(v.end(), {0.0f, halfH, 0.0f,
+                       nxz_side * std::cos(theta), ny_side, nxz_side * std::sin(theta)});
+  }
 
   // 側面
   for (int i = 0; i < slices; i++) {
     int next = (i + 1) % slices;
     idx.push_back(static_cast<unsigned int>(i));
     idx.push_back(static_cast<unsigned int>(next));
-    idx.push_back(apex);
+    idx.push_back(apexBase + i);
   }
 
-  // 底面
+  // -- 底キャップ (法線 -Y) --
+  unsigned int bottomRingBase = static_cast<unsigned int>(v.size() / 6);
+  for (int i = 0; i < slices; i++) {
+    float theta = 2.0f * kPi * i / float(slices);
+    v.insert(v.end(), {radius * std::cos(theta), -halfH, radius * std::sin(theta),
+                       0.0f, -1.0f, 0.0f});
+  }
+  unsigned int bottomCenter = static_cast<unsigned int>(v.size() / 6);
+  v.insert(v.end(), {0.0f, -halfH, 0.0f,  0.0f, -1.0f, 0.0f});
   for (int i = 0; i < slices; i++) {
     int next = (i + 1) % slices;
     idx.push_back(bottomCenter);
-    idx.push_back(static_cast<unsigned int>(next));
-    idx.push_back(static_cast<unsigned int>(i));
+    idx.push_back(bottomRingBase + next);
+    idx.push_back(bottomRingBase + i);
   }
 
   return std::make_unique<Mesh>(v, idx);
@@ -205,17 +259,15 @@ std::unique_ptr<Mesh> MeshFactory::circle(float radius, int segments) {
   std::vector<unsigned int> idx;
 
   // 中心 [0]
-  v.push_back(0.0f); v.push_back(0.0f); v.push_back(0.0f);
+  v.insert(v.end(), {0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f});
 
   // リング [1, segments]
   for (int i = 0; i < segments; i++) {
     float theta = 2.0f * kPi * i / float(segments);
-    v.push_back(radius * std::cos(theta));
-    v.push_back(0.0f);
-    v.push_back(radius * std::sin(theta));
+    v.insert(v.end(), {radius * std::cos(theta), 0.0f, radius * std::sin(theta),
+                       0.0f, 1.0f, 0.0f});
   }
 
-  // ファン三角形（CCW from +Y）
   for (int i = 0; i < segments; i++) {
     unsigned int curr = 1 + i;
     unsigned int next = 1 + (i + 1) % segments;
@@ -231,13 +283,11 @@ std::unique_ptr<Mesh> MeshFactory::circle(float radius, int segments) {
 // Screen Quad  (NDC座標, ポストエフェクト用フルスクリーンクワッド)
 // -----------------------------------------------------------------------
 std::unique_ptr<Mesh> MeshFactory::screenQuad() {
-  // z=0 の NDC フルスクリーン。MVP不要、頂点シェーダーでそのまま使う。
-  // TexCoord は頂点シェーダー側で  pos.xy * 0.5 + 0.5  で計算する。
   std::vector<float> v = {
-      -1.0f, -1.0f, 0.0f,
-       1.0f, -1.0f, 0.0f,
-       1.0f,  1.0f, 0.0f,
-      -1.0f,  1.0f, 0.0f,
+      -1.0f, -1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+       1.0f, -1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+       1.0f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+      -1.0f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
   };
   std::vector<unsigned int> idx = {0, 1, 2, 2, 3, 0};
 

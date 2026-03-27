@@ -1,21 +1,15 @@
-#include "renderer.h"
-#include "../scene/transform.h"
-#include "material.h"
-#include "mesh.h"
-#include "shader.h"
+#include "draw.h"
+#include "../material.h"
+#include "../mesh.h"
+#include "../shader.h"
+#include "../../scene/transform.h"
 #include <glad/glad.h>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Renderer::Renderer() { glEnable(GL_DEPTH_TEST); }
+void Renderer::draw(const Mesh &mesh, const DrawParams &params) {
+  const Transform &transform = params.transform;
+  const Material  &material  = params.material;
 
-void Renderer::beginFrame() {
-  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void Renderer::draw(const Mesh &mesh, const Transform &transform,
-                    const Material &material) {
   glm::mat4 model = glm::mat4(1.0f);
   model = glm::translate(model, transform.position);
   model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
