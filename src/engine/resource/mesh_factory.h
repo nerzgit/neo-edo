@@ -1,12 +1,13 @@
 #pragma once
 
+#include "gltf_loader.h"
 #include "obj_loader.h"
 #include "../renderer/mesh.h"
 #include <memory>
 #include <string>
 
 // エンジン組み込みプリミティブ (resource/assets/*.obj) をロードするファクトリ。
-// ユーザー定義モデルは fromObj() で root/assets/ から読み込む。
+// ユーザー定義モデルは fromObj() / fromGltf() で root/assets/ から読み込む。
 struct MeshFactory {
     static std::unique_ptr<Mesh> cube()       { return ObjLoader::loadEngine("cube"); }
     static std::unique_ptr<Mesh> plane()      { return ObjLoader::loadEngine("plane"); }
@@ -16,5 +17,8 @@ struct MeshFactory {
     static std::unique_ptr<Mesh> circle()     { return ObjLoader::loadEngine("circle"); }
     static std::unique_ptr<Mesh> screenQuad() { return ObjLoader::loadEngine("screen_quad"); }
 
-    static std::unique_ptr<Mesh> fromObj(const std::string& name) { return ObjLoader::loadUser(name); }
+    // root/assets/<name>.obj
+    static std::unique_ptr<Mesh> fromObj(const std::string& name)  { return ObjLoader::loadUser(name); }
+    // root/assets/<name>  (.gltf / .glb)
+    static std::unique_ptr<Mesh> fromGltf(const std::string& name) { return GltfLoader::loadUser(name); }
 };

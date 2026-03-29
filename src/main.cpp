@@ -2,6 +2,8 @@
 #include "engine/input/input_handler.h"
 #include "engine/renderer/draw/draw.h"
 #include "engine/renderer/shadow_map.h"
+#include "engine/resource/gltf_loader.h"
+#include "engine/resource/gltf_skin.h"
 #include "engine/resource/mesh_factory.h"
 #include "engine/resource/mesh_manager.h"
 #include "engine/resource/shader_manager.h"
@@ -12,6 +14,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include <cmath>
 
 static const std::string kShaderDir = std::string(ASSETS_DIR) + "/shaders/";
 
@@ -42,10 +45,20 @@ int main() {
         meshes.loadMesh("sphere", MeshFactory::sphere());
         meshes.loadMesh("cube",   MeshFactory::cube());
         meshes.loadMesh("plane",  MeshFactory::plane());
+        meshes.loadMesh("torus",  MeshFactory::fromGltf("torus.gltf"));
+
+        // Fox スキニングメッシュをロード
+        std::pair<std::unique_ptr<Mesh>, GltfData> foxLoaded =
+            GltfLoader::loadSkinnedUser("Fox.gltf");
+        GltfData foxData = std::move(foxLoaded.second);
+        GltfSkin foxSkin(foxData);
+        meshes.loadMesh("fox", std::move(foxLoaded.first));
 
         Material sphereMat{&shaders.get("lit"), glm::vec4(0.8f, 0.3f, 0.3f, 1.f)};
         Material cubeMat  {&shaders.get("lit"), glm::vec4(0.3f, 0.5f, 0.8f, 1.f)};
         Material planeMat {&shaders.get("lit"), glm::vec4(0.5f, 0.5f, 0.5f, 1.f)};
+        Material torusMat {&shaders.get("lit"), glm::vec4(0.9f, 0.7f, 0.2f, 1.f)};
+        Material foxMat   {&shaders.get("lit"), glm::vec4(0.8f, 0.6f, 0.4f, 1.f)};
 
         Scene scene;
 
@@ -65,12 +78,25 @@ int main() {
         planeEntity.transform.position = glm::vec3(0.f, 0.f, 0.f);
         planeEntity.transform.scale    = glm::vec3(12.f, 1.f, 12.f);
 
+        Entity& torusEntity = scene.createEntity();
+        torusEntity.mesh     = &meshes.get("torus");
+        torusEntity.material = &torusMat;
+        torusEntity.transform.position = glm::vec3(0.f, 1.5f, 0.f);
+
+        Entity& foxEntity = scene.createEntity();
+        foxEntity.mesh     = &meshes.get("fox");
+        foxEntity.material = &foxMat;
+        foxEntity.transform.position = glm::vec3(0.f, 0.f, 0.f);
+        foxEntity.transform.scale    = glm::vec3(0.01f);
+
         DirectionalLight light;
         light.direction       = glm::normalize(glm::vec3(-1.f, -2.5f, -1.f));
         light.ambientStrength = 0.15f;
         ShadowMap shadowMap(1024, 1024);
 
         float lastTime = static_cast<float>(glfwGetTime());
+        float foxTime  = 0.f;
+        const float foxDuration = foxSkin.duration("Walk");
 
         while (!window.shouldClose()) {
             const float now = static_cast<float>(glfwGetTime());
@@ -79,6 +105,17 @@ int main() {
 
             input.update(dt);
             scene.update(dt);
+
+            torusEntity.transform.rotation.y += dt * 1.2f;
+            torusEntity.transform.rotation.x += dt * 0.4f;
+
+            // Fox アニメーション更新
+            foxTime += dt;
+            if (foxDuration > 0.f)
+                foxTime = std::fmod(foxTime, foxDuration);
+
+            std::vector<float> foxVerts = foxSkin.update("Walk", foxTime);
+            foxEntity.mesh->updateVertices(foxVerts);
 
             CameraMatrices cam{
                 camera.getViewMatrix(),
