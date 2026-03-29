@@ -17,15 +17,10 @@ void Renderer::draw(const Mesh &mesh, const DrawParams &params) {
   model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
   model = glm::scale(model, transform.scale);
 
-  glm::mat4 view =
-      glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
-  glm::mat4 proj =
-      glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-
   material.shader->bind();
   material.shader->setMat4("model", model);
-  material.shader->setMat4("view", view);
-  material.shader->setMat4("projection", proj);
+  material.shader->setMat4("view", params.camera.view);
+  material.shader->setMat4("projection", params.camera.projection);
   material.shader->setVec4("color", material.color);
 
   mesh.bind();

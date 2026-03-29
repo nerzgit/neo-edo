@@ -10,6 +10,7 @@ public:
   ~Window();
 
   bool shouldClose() const;
+  void close();
   void swapBuffers();
   void pollEvents();
 

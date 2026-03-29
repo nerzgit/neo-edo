@@ -18,6 +18,7 @@ add_executable(${APP_NAME} ${SOURCES})
 target_compile_definitions(${APP_NAME}
     PRIVATE
         ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+        ENGINE_ASSETS_DIR="${CMAKE_SOURCE_DIR}/src/engine/resource/assets"
 )
 
 target_include_directories(${APP_NAME}

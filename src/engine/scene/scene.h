@@ -1,6 +1,7 @@
 #pragma once
 
 #include "entity.h"
+#include "../camera/camera.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
@@ -16,19 +17,16 @@ public:
 
   void update(float dt);
 
-  // フラットカラー描画 (既存)
-  void render(Renderer &renderer);
+  void render(Renderer &renderer, const CameraMatrices &camera);
 
-  // シャドウパス: デプスのみ描画
   void renderDepthPass(Renderer &renderer, Shader &depthShader,
                        const glm::mat4 &lightSpaceMatrix);
 
-  // ライティングパス: シャドウマップ使用
   void renderLit(Renderer &renderer, Shader &litShader,
+                 const CameraMatrices &camera,
                  const glm::mat4 &lightSpaceMatrix, const ShadowMap &shadowMap,
                  const glm::vec3 &lightDir, float ambientStrength);
 
 private:
-  // unique_ptr でヒープに固定 → emplace_back による再確保後も参照が有効
   std::vector<std::unique_ptr<Entity>> entities_;
 };

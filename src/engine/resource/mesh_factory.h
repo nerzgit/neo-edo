@@ -1,32 +1,20 @@
 #pragma once
 
+#include "obj_loader.h"
 #include "../renderer/mesh.h"
 #include <memory>
+#include <string>
 
-class MeshFactory {
-public:
-  // 1x1x1 の箱
-  static std::unique_ptr<Mesh> cube(float size = 1.0f);
+// エンジン組み込みプリミティブ (resource/assets/*.obj) をロードするファクトリ。
+// ユーザー定義モデルは fromObj() で root/assets/ から読み込む。
+struct MeshFactory {
+    static std::unique_ptr<Mesh> cube()       { return ObjLoader::loadEngine("cube"); }
+    static std::unique_ptr<Mesh> plane()      { return ObjLoader::loadEngine("plane"); }
+    static std::unique_ptr<Mesh> sphere()     { return ObjLoader::loadEngine("sphere"); }
+    static std::unique_ptr<Mesh> cylinder()   { return ObjLoader::loadEngine("cylinder"); }
+    static std::unique_ptr<Mesh> cone()       { return ObjLoader::loadEngine("cone"); }
+    static std::unique_ptr<Mesh> circle()     { return ObjLoader::loadEngine("circle"); }
+    static std::unique_ptr<Mesh> screenQuad() { return ObjLoader::loadEngine("screen_quad"); }
 
-  // XZ平面上のグリッド（subdivで分割数を指定）
-  static std::unique_ptr<Mesh> plane(float width = 1.0f, float depth = 1.0f,
-                                     int subdivW = 1, int subdivD = 1);
-
-  // UV球
-  static std::unique_ptr<Mesh> sphere(float radius = 0.5f, int stacks = 16,
-                                      int slices = 16);
-
-  // 円柱（上下キャップ付き）
-  static std::unique_ptr<Mesh> cylinder(float radius = 0.5f,
-                                        float height = 1.0f, int slices = 16);
-
-  // 円錐（底面キャップ付き）
-  static std::unique_ptr<Mesh> cone(float radius = 0.5f, float height = 1.0f,
-                                    int slices = 16);
-
-  // XZ平面上の円盤
-  static std::unique_ptr<Mesh> circle(float radius = 0.5f, int segments = 32);
-
-  // NDCフルスクリーンクワッド（ポストエフェクト用）
-  static std::unique_ptr<Mesh> screenQuad();
+    static std::unique_ptr<Mesh> fromObj(const std::string& name) { return ObjLoader::loadUser(name); }
 };

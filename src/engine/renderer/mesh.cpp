@@ -1,7 +1,8 @@
 #include "mesh.h"
 
 Mesh::Mesh(const std::vector<float> &vertices,
-           const std::vector<unsigned int> &indices)
+           const std::vector<unsigned int> &indices,
+           bool dynamic)
     : indexCount_(static_cast<int>(indices.size())) {
   glGenVertexArrays(1, &vao_);
   glGenBuffers(1, &vbo_);
@@ -9,9 +10,10 @@ Mesh::Mesh(const std::vector<float> &vertices,
 
   glBindVertexArray(vao_);
 
+  GLenum usage = dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
   glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float),
-               vertices.data(), GL_STATIC_DRAW);
+               vertices.data(), usage);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
@@ -32,6 +34,13 @@ Mesh::~Mesh() {
   glDeleteVertexArrays(1, &vao_);
   glDeleteBuffers(1, &vbo_);
   glDeleteBuffers(1, &ebo_);
+}
+
+void Mesh::updateVertices(const std::vector<float> &vertices) {
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float),
+                  vertices.data());
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Mesh::bind() const { glBindVertexArray(vao_); }

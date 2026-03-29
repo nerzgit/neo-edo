@@ -21,10 +21,10 @@ void Scene::update(float dt) {
   }
 }
 
-void Scene::render(Renderer &renderer) {
+void Scene::render(Renderer &renderer, const CameraMatrices &camera) {
   for (auto &e : entities_) {
     if (e->mesh && e->material)
-      renderer.draw(*e->mesh, DrawParams{e->transform, *e->material});
+      renderer.draw(*e->mesh, DrawParams{e->transform, *e->material, camera});
   }
 }
 
@@ -38,6 +38,7 @@ void Scene::renderDepthPass(Renderer &renderer, Shader &depthShader,
 }
 
 void Scene::renderLit(Renderer &renderer, Shader &litShader,
+                      const CameraMatrices &camera,
                       const glm::mat4 &lightSpaceMatrix,
                       const ShadowMap &shadowMap, const glm::vec3 &lightDir,
                       float ambientStrength) {
@@ -45,7 +46,7 @@ void Scene::renderLit(Renderer &renderer, Shader &litShader,
     if (e->mesh && e->material)
       renderer.drawLit(*e->mesh,
                        DrawLitParams{e->transform, *e->material, litShader,
-                                     lightSpaceMatrix, shadowMap, lightDir,
-                                     ambientStrength});
+                                     camera, lightSpaceMatrix,
+                                     shadowMap, lightDir, ambientStrength});
   }
 }
