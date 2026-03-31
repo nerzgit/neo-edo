@@ -5,12 +5,19 @@
 #include <string>
 #include <vector>
 
+struct TextureImage {
+    int width  = 0;
+    int height = 0;
+    std::vector<unsigned char> pixels; // RGBA 8bit
+};
+
 // ノード1つ分のローカル TRS
 struct NodeData {
-    int       parent = -1;
-    glm::vec3 translation{0.f};
-    glm::quat rotation{1.f, 0.f, 0.f, 0.f};
-    glm::vec3 scale{1.f};
+    int         parent = -1;
+    std::string name;
+    glm::vec3   translation{0.f};
+    glm::quat   rotation{1.f, 0.f, 0.f, 0.f};
+    glm::vec3   scale{1.f};
 };
 
 enum class AnimPath { Translation, Rotation, Scale };
@@ -36,7 +43,10 @@ struct GltfData {
     // geometry
     std::vector<glm::vec3>    positions;
     std::vector<glm::vec3>    normals;
+    std::vector<glm::vec2>    texcoords; // TEXCOORD_0
     std::vector<unsigned int> indices;
+    // textures
+    std::vector<TextureImage> images;    // baseColorTexture
     // skinning
     std::vector<glm::uvec4>   joints;   // JOINTS_0
     std::vector<glm::vec4>    weights;  // WEIGHTS_0

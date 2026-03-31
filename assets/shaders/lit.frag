@@ -3,11 +3,14 @@
 in vec3 fragNormal;
 in vec3 fragPos;
 in vec4 fragPosLightSpace;
+in vec2 fragTexCoord;
 
-uniform vec4  color;
-uniform vec3  lightDir;       // ライトからシーンへの方向 (正規化済み)
-uniform float ambientStrength;
+uniform vec4      color;
+uniform vec3      lightDir;       // ライトからシーンへの方向 (正規化済み)
+uniform float     ambientStrength;
 uniform sampler2D shadowMap;
+uniform sampler2D albedoMap;
+uniform int       hasAlbedoMap;  // 1 = テクスチャあり, 0 = color を使用
 
 out vec4 FragColor;
 
@@ -52,5 +55,6 @@ void main() {
     // 影の領域はアンビエントのみ
     float lighting = ambientStrength + (1.0 - shadow) * diff * (1.0 - ambientStrength);
 
-    FragColor = vec4(color.rgb * lighting, color.a);
+    vec4 baseColor = (hasAlbedoMap != 0) ? texture(albedoMap, fragTexCoord) : color;
+    FragColor = vec4(baseColor.rgb * lighting, baseColor.a);
 }

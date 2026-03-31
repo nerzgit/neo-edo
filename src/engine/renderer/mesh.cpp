@@ -20,12 +20,16 @@ Mesh::Mesh(const std::vector<float> &vertices,
                indices.data(), GL_STATIC_DRAW);
 
   // location 0: position (xyz)
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
   glEnableVertexAttribArray(0);
   // location 1: normal (xyz)
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                         reinterpret_cast<void *>(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
+  // location 2: texcoord (uv)
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                        reinterpret_cast<void *>(6 * sizeof(float)));
+  glEnableVertexAttribArray(2);
 
   glBindVertexArray(0);
 }

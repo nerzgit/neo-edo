@@ -1,8 +1,8 @@
 #include "gltf_parser.h"
 
 #define TINYGLTF_IMPLEMENTATION
-#define TINYGLTF_NO_STB_IMAGE
-#define TINYGLTF_NO_STB_IMAGE_WRITE
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
 #include <glm/gtc/type_ptr.hpp>
@@ -93,6 +93,21 @@ static std::vector<unsigned int> extractIndices(const tinygltf::Model& model,
     return out;
 }
 
+static std::vector<glm::vec2> extractTexcoords(const tinygltf::Model& model,
+                                                const tinygltf::Primitive& prim) {
+    std::map<std::string, int>::const_iterator it = prim.attributes.find("TEXCOORD_0");
+    if (it == prim.attributes.end())
+        return {};
+
+    const float* data  = accessorDataPtr(model, it->second);
+    const size_t count = model.accessors[it->second].count;
+
+    std::vector<glm::vec2> out(count);
+    for (size_t i = 0; i < count; i++)
+        out[i] = {data[i * 2], data[i * 2 + 1]};
+    return out;
+}
+
 // JOINTS_0: componentType が UNSIGNED_BYTE or UNSIGNED_SHORT
 static std::vector<glm::uvec4> extractJoints(const tinygltf::Model& model,
                                               const tinygltf::Primitive& prim) {
@@ -147,6 +162,7 @@ static std::vector<NodeData> extractNodes(const tinygltf::Model& model) {
     // 初期 TRS を設定
     for (size_t i = 0; i < nodeCount; i++) {
         const tinygltf::Node& n = model.nodes[i];
+        out[i].name = n.name;
 
         if (n.translation.size() == 3) {
             out[i].translation = glm::vec3(
@@ -287,6 +303,7 @@ static tinygltf::Model loadModel(const std::string& path) {
     tinygltf::TinyGLTF loader;
     std::string        err, warn;
 
+
     bool ok = (path.size() >= 4 && path.substr(path.size() - 4) == ".glb")
         ? loader.LoadBinaryFromFile(&model, &err, &warn, path)
         : loader.LoadASCIIFromFile(&model, &err, &warn, path);
@@ -307,13 +324,31 @@ GltfData parseGltf(const std::string& path) {
     const tinygltf::Primitive& prim  = model.meshes[0].primitives[0];
 
     GltfData data;
-    data.positions = extractPositions(model, prim);
-    data.normals   = extractNormals(model, prim);
-    data.indices   = extractIndices(model, prim, data.positions.size());
-    data.joints    = extractJoints(model, prim);
-    data.weights   = extractWeights(model, prim);
-    data.nodes     = extractNodes(model);
+    data.positions  = extractPositions(model, prim);
+    data.normals    = extractNormals(model, prim);
+    data.texcoords  = extractTexcoords(model, prim);
+    data.indices    = extractIndices(model, prim, data.positions.size());
+    data.joints     = extractJoints(model, prim);
+    data.weights    = extractWeights(model, prim);
+    data.nodes      = extractNodes(model);
     extractSkin(model, data.skinJoints, data.inverseBindMatrices);
     data.animations = extractAnimations(model);
+
+    // マテリアルのベースカラーテクスチャを抽出
+    if (!model.materials.empty()) {
+        int texIdx = model.materials[0].pbrMetallicRoughness.baseColorTexture.index;
+        if (texIdx >= 0 && texIdx < static_cast<int>(model.textures.size())) {
+            int imgIdx = model.textures[texIdx].source;
+            if (imgIdx >= 0 && imgIdx < static_cast<int>(model.images.size())) {
+                const tinygltf::Image& img = model.images[imgIdx];
+                TextureImage ti;
+                ti.width  = img.width;
+                ti.height = img.height;
+                ti.pixels = img.image; // RGBA
+                data.images.push_back(std::move(ti));
+            }
+        }
+    }
+
     return data;
 }

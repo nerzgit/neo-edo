@@ -20,6 +20,11 @@ void Renderer::drawLit(const Mesh &mesh, const DrawLitParams &params) {
 
   params.shadowMap.bindDepthTexture(1);
 
+  if (material.albedoTex != 0) {
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, material.albedoTex);
+  }
+
   params.shader.bind();
   params.shader.setMat4("model", model);
   params.shader.setMat4("view", params.camera.view);
@@ -29,6 +34,8 @@ void Renderer::drawLit(const Mesh &mesh, const DrawLitParams &params) {
   params.shader.setVec3("lightDir", params.lightDir);
   params.shader.setFloat("ambientStrength", params.ambientStrength);
   params.shader.setInt("shadowMap", 1);
+  params.shader.setInt("albedoMap", 2);
+  params.shader.setInt("hasAlbedoMap", material.albedoTex != 0 ? 1 : 0);
 
   mesh.bind();
   glDrawElements(GL_TRIANGLES, mesh.indexCount(), GL_UNSIGNED_INT, nullptr);

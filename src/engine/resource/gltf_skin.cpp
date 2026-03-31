@@ -3,6 +3,40 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
+#include <unordered_map>
+
+// -----------------------------------------------------------------------
+// retargetAnim: ボーン名ベースでノードインデックスを再マッピング
+// -----------------------------------------------------------------------
+AnimData retargetAnim(const AnimData&              srcAnim,
+                      const std::vector<NodeData>& srcNodes,
+                      const std::vector<NodeData>& dstNodes)
+{
+    // dstNodes の名前 → インデックスのマップを構築
+    std::unordered_map<std::string, int> dstNameToIdx;
+    for (size_t i = 0; i < dstNodes.size(); i++)
+        dstNameToIdx[dstNodes[i].name] = static_cast<int>(i);
+
+    AnimData result;
+    result.name     = srcAnim.name;
+    result.samplers = srcAnim.samplers; // サンプラーデータはそのままコピー
+
+    for (const AnimChannel& ch : srcAnim.channels) {
+        if (ch.nodeIdx < 0 || static_cast<size_t>(ch.nodeIdx) >= srcNodes.size())
+            continue;
+
+        const std::string& boneName = srcNodes[static_cast<size_t>(ch.nodeIdx)].name;
+        auto it = dstNameToIdx.find(boneName);
+        if (it == dstNameToIdx.end())
+            continue; // ターゲットに対応するボーンがなければスキップ
+
+        AnimChannel newCh  = ch;
+        newCh.nodeIdx      = it->second;
+        result.channels.push_back(newCh);
+    }
+
+    return result;
+}
 
 // -----------------------------------------------------------------------
 // コンストラクタ
@@ -136,6 +170,23 @@ void GltfSkin::recomputeNormals(std::vector<glm::vec3>& normals,
 }
 
 // -----------------------------------------------------------------------
+// getBoneWorldMatrix: update() 後に指定名のボーングローバル行列を返す
+// -----------------------------------------------------------------------
+glm::mat4 GltfSkin::getBoneWorldMatrix(const std::string& boneName) const {
+    if (cachedTranslations_.empty())
+        return glm::mat4(1.f);
+
+    for (size_t i = 0; i < data_.nodes.size(); i++) {
+        if (data_.nodes[i].name == boneName)
+            return globalMatrix(static_cast<int>(i),
+                                cachedTranslations_,
+                                cachedRotations_,
+                                cachedScales_);
+    }
+    return glm::mat4(1.f);
+}
+
+// -----------------------------------------------------------------------
 // update: アニメーションを time でサンプルし CPU スキニングを実行
 // 戻り値: フラット頂点配列 (x,y,z,nx,ny,nz) * vertexCount
 // -----------------------------------------------------------------------
@@ -185,6 +236,11 @@ std::vector<float> GltfSkin::update(const std::string& animName, float time) {
         }
     }
 
+    // 3b. TRS をキャッシュ（getBoneWorldMatrix で参照）
+    cachedTranslations_ = translations;
+    cachedRotations_    = rotations;
+    cachedScales_       = scaleVecs;
+
     // 4. スキン行列を計算: globalMatrix(joint) * inverseBindMatrix
     const size_t jointCount = data_.skinJoints.size();
     std::vector<glm::mat4> skinMatrices(jointCount);
@@ -223,9 +279,10 @@ std::vector<float> GltfSkin::update(const std::string& animName, float time) {
     std::vector<glm::vec3> normals;
     recomputeNormals(normals, skinnedPositions);
 
-    // 7. フラット配列 (x,y,z,nx,ny,nz) を生成して返す
+    // 7. フラット配列 (x,y,z,nx,ny,nz,u,v) を生成して返す
+    const bool hasTexcoords = !data_.texcoords.empty();
     std::vector<float> out;
-    out.reserve(vertCount * 6);
+    out.reserve(vertCount * 8);
     for (size_t i = 0; i < vertCount; i++) {
         out.push_back(skinnedPositions[i].x);
         out.push_back(skinnedPositions[i].y);
@@ -233,6 +290,13 @@ std::vector<float> GltfSkin::update(const std::string& animName, float time) {
         out.push_back(normals[i].x);
         out.push_back(normals[i].y);
         out.push_back(normals[i].z);
+        if (hasTexcoords && i < data_.texcoords.size()) {
+            out.push_back(data_.texcoords[i].x);
+            out.push_back(data_.texcoords[i].y);
+        } else {
+            out.push_back(0.f);
+            out.push_back(0.f);
+        }
     }
     return out;
 }

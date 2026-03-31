@@ -46,6 +46,35 @@ int main() {
         meshes.loadMesh("cube",   MeshFactory::cube());
         meshes.loadMesh("plane",  MeshFactory::plane());
         meshes.loadMesh("torus",  MeshFactory::fromGltf("torus.gltf"));
+        GltfLoader::SkinnedTextured testbombLoaded = GltfLoader::loadSkinnedUserTextured("testbomb.glb");
+        GltfData testbombData = std::move(testbombLoaded.data);
+        GLuint   testbombTex  = testbombLoaded.texId;
+        GltfSkin testbombSkin(testbombData);
+        meshes.loadMesh("testbomb", std::move(testbombLoaded.mesh));
+
+        // --------------------------------------------------------------------
+        // アニメーション使い回し（リターゲット）の使用例
+        //
+        // 1. アニメーション専用 glTF（ボーン＋アニメのみ、メッシュなし）を用意する
+        //    Blender でアーマチュアだけ選択して "Selected Objects Only" でエクスポート
+        //
+        // 2. キャラクターごとのメッシュ glTF（アニメなし）を用意する
+        //
+        // 3. retargetAnim でノードインデックスをボーン名ベースで再マッピングして使う
+        //
+        //   GltfData animSrc = parseGltf("animations.gltf"); // ボーン+アニメのみ
+        //   GltfData target  = parseGltf("character.gltf");  // メッシュ+ボーン
+        //
+        //   for (const AnimData& anim : animSrc.animations)
+        //       target.animations.push_back(
+        //           retargetAnim(anim, animSrc.nodes, target.nodes));
+        //
+        //   GltfSkin skin(target);
+        //   skin.update("Walk", time); // そのまま動く
+        //
+        // 注意: animSrc と target でボーン名が一致している必要がある。
+        //       一致しないボーンのチャンネルは無視される。
+        // --------------------------------------------------------------------
 
         // Fox スキニングメッシュをロード
         std::pair<std::unique_ptr<Mesh>, GltfData> foxLoaded =
@@ -54,18 +83,25 @@ int main() {
         GltfSkin foxSkin(foxData);
         meshes.loadMesh("fox", std::move(foxLoaded.first));
 
+        // ボーン名一覧をデバッグ出力
+        std::cout << "=== Fox bones ===\n";
+        for (const NodeData& nd : foxData.nodes)
+            std::cout << nd.name << "\n";
+        std::cout << "=================\n";
+
         Material sphereMat{&shaders.get("lit"), glm::vec4(0.8f, 0.3f, 0.3f, 1.f)};
         Material cubeMat  {&shaders.get("lit"), glm::vec4(0.3f, 0.5f, 0.8f, 1.f)};
         Material planeMat {&shaders.get("lit"), glm::vec4(0.5f, 0.5f, 0.5f, 1.f)};
         Material torusMat {&shaders.get("lit"), glm::vec4(0.9f, 0.7f, 0.2f, 1.f)};
-        Material foxMat   {&shaders.get("lit"), glm::vec4(0.8f, 0.6f, 0.4f, 1.f)};
+        Material foxMat     {&shaders.get("lit"), glm::vec4(0.8f, 0.6f, 0.4f, 1.f)};
+        Material testbombMat{&shaders.get("lit"), glm::vec4(1.f), testbombTex};
 
         Scene scene;
 
         Entity& sphereEntity = scene.createEntity();
         sphereEntity.mesh     = &meshes.get("sphere");
         sphereEntity.material = &sphereMat;
-        sphereEntity.transform.position = glm::vec3(-1.5f, 0.5f, 0.f);
+        sphereEntity.transform.scale = glm::vec3(0.05f);  // Fox のスケール(0.01)に合わせて小さく
 
         Entity& cubeEntity = scene.createEntity();
         cubeEntity.mesh     = &meshes.get("cube");
@@ -89,6 +125,11 @@ int main() {
         foxEntity.transform.position = glm::vec3(0.f, 0.f, 0.f);
         foxEntity.transform.scale    = glm::vec3(0.01f);
 
+        Entity& testbombEntity = scene.createEntity();
+        testbombEntity.mesh     = &meshes.get("testbomb");
+        testbombEntity.material = &testbombMat;
+        testbombEntity.transform.position = glm::vec3(3.f, 1.f, -2.f);
+
         DirectionalLight light;
         light.direction       = glm::normalize(glm::vec3(-1.f, -2.5f, -1.f));
         light.ambientStrength = 0.15f;
@@ -97,6 +138,8 @@ int main() {
         float lastTime = static_cast<float>(glfwGetTime());
         float foxTime  = 0.f;
         const float foxDuration = foxSkin.duration("Walk");
+        float testbombTime = 0.f;
+        const float testbombDuration = testbombSkin.duration("anim_attack");
 
         while (!window.shouldClose()) {
             const float now = static_cast<float>(glfwGetTime());
@@ -116,6 +159,20 @@ int main() {
 
             std::vector<float> foxVerts = foxSkin.update("Walk", foxTime);
             foxEntity.mesh->updateVertices(foxVerts);
+
+            // testbomb アニメーション更新
+            testbombTime += dt;
+            if (testbombDuration > 0.f)
+                testbombTime = std::fmod(testbombTime, testbombDuration);
+
+            std::vector<float> testbombVerts = testbombSkin.update("anim_attack", testbombTime);
+            testbombEntity.mesh->updateVertices(testbombVerts);
+
+            // Fox のモデル行列を再現して手のワールド座標を求める
+            glm::mat4 foxModelMat = glm::translate(glm::mat4(1.f), foxEntity.transform.position);
+            foxModelMat = glm::scale(foxModelMat, foxEntity.transform.scale);
+            glm::mat4 handWorld = foxModelMat * foxSkin.getBoneWorldMatrix("b_RightHand_08");
+            sphereEntity.transform.position = glm::vec3(handWorld[3]);
 
             CameraMatrices cam{
                 camera.getViewMatrix(),

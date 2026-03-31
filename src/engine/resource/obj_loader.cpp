@@ -30,12 +30,14 @@ std::unique_ptr<Mesh> ObjLoader::buildMesh(const ObjData& data) {
         auto key = std::make_pair(posIdx, normIdx);
         auto it  = vertexMap.find(key);
         if (it == vertexMap.end()) {
-            auto vi = static_cast<unsigned int>(flatVerts.size() / 6);
+            auto vi = static_cast<unsigned int>(flatVerts.size() / 8);
             vertexMap[key] = vi;
             indices.push_back(vi);
             pushVec3(flatVerts, data.positions[posIdx - 1]);
             pushVec3(flatVerts, normIdx > 0 ? data.normals[normIdx - 1]
                                             : glm::vec3(0.f, 1.f, 0.f));
+            flatVerts.push_back(0.f); // uv.x
+            flatVerts.push_back(0.f); // uv.y
         } else {
             indices.push_back(it->second);
         }
